@@ -50,6 +50,7 @@ public class METPServer {
         File newVersion = new File("E:/vdis/FSV 2.vdi");
         File oldVersion = new File("E:/vdis/FSV.vdi");
         FileChannel fNew = new FileInputStream(newVersion).getChannel(); // Canale di lettura del nuovo file
+        FileChannel fOld = new FileInputStream(oldVersion).getChannel(); // Canale di lettura del vecchio file
         FileChannel fOutOld = FileChannel.open(oldVersion.toPath(), StandardOpenOption.WRITE); // Canale di scrittura sul vecchio file in append
         final int ChunkSize = 1024 * 1024; // 1 MB
         long newChunks, oldChunks;
@@ -128,18 +129,23 @@ public class METPServer {
                     }
                 }
             }
+            if (aiaOld.sIndexes[i].length == 0) {
+                aiaOld.addIndex(i, -1);
+            }
         }
 
-        for (int i : iaNew.sIndexes) {
-            System.out.println(i);
+        for (int i = 0; i < aiaOld.sIndexes.length; i++) {
+            System.out.println(aiaOld.sIndexes[i].length);
         }
         
         for (int i = 0; i < aiaOld.sIndexes.length; i++) {
             System.out.print("\nIndexes["+ i +"]: ");
             for (int j = 0; j < aiaOld.sIndexes[i].length; j++) {
-                System.out.print(aiaOld.sIndexes[i][j]);
+                System.out.print(aiaOld.sIndexes[i][j] + " ");
             }
         }
+        
+        
     }
 
 }

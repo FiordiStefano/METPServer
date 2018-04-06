@@ -16,7 +16,10 @@ public class AIndexedArray {
 
     public AIndexedArray(long[] array) {
         this.array = array;
-        this.sIndexes = new int[array.length][1];
+        this.sIndexes = new int[array.length][];
+        for(int i = 0; i < sIndexes.length; i++) {
+            sIndexes[i] = new int[0];
+        }
     }
 
     private void realloc(int index, int newLength) throws MyExc {
@@ -36,7 +39,7 @@ public class AIndexedArray {
             throw new MyExc("Invalid new index value");
         }
         realloc(index, sIndexes[index].length + 1);
-        sIndexes[index][sIndexes.length - 1] = value;
+        sIndexes[index][sIndexes[index].length - 1] = value;
     }
 
     protected void delIndex(int rIndex, int cIndex) throws MyExc {
