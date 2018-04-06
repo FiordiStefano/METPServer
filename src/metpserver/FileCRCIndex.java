@@ -10,7 +10,7 @@ package metpserver;
  * @author Stefano Fiordi
  */
 public class FileCRCIndex {
-    
+
     protected String path;
     protected int chunkSize;
     protected long nPackets;
@@ -22,17 +22,20 @@ public class FileCRCIndex {
         this.nPackets = nPackets;
         this.fileLength = fileLength;
     }
-    
+
     static {
         System.loadLibrary("FileCRCIndex");
     }
-    
+
     private native long[] calculateFileCRC(String fileName, int chunkSize, long nPackets, long fileLength);
-    
-    public long[] calcDigests()
-    {
+
+    public long[] calcDigests() throws MyExc {
         long[] digests = calculateFileCRC(path, chunkSize, nPackets, fileLength);
-        
+
+        if (digests == null) {
+            throw new MyExc("CRC indexing error");
+        }
+
         return digests;
     }
 }

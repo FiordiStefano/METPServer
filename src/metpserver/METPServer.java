@@ -8,9 +8,12 @@ package metpserver;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.channels.FileChannel;
+import java.nio.file.StandardOpenOption;
 
 /**
  *
@@ -21,20 +24,19 @@ public class METPServer {
     public static void writeDigests(long[] digests, String filename) throws IOException {
         BufferedWriter writer = new BufferedWriter(new FileWriter(filename, false));
         for (long l : digests) {
-            writer.write(String.valueOf(l));
-            writer.newLine();
+            writer.write(Long.toString(l) + " ");
         }
-
+        writer.close();
     }
 
-    public static long[] readDigests(String filename, int chunks) throws IOException {
+    public static long[] readDigests(String filename, int chunks) throws IOException, NumberFormatException {
         BufferedReader reader = new BufferedReader(new FileReader(filename));
         String line;
         long[] digests = new long[chunks];
-        int i = 0;
-        while ((line = reader.readLine()) != null) {
-            digests[i] = Long.parseLong(line);
-            i++;
+        line = reader.readLine();
+        String[] pcs = line.split(" ");
+        for (int i = 0; i < chunks; i++) {
+            digests[i] = Long.parseLong(pcs[i]);
         }
         reader.close();
 
@@ -44,9 +46,11 @@ public class METPServer {
     /**
      * @param args the command line arguments
      */
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, MyExc, NumberFormatException {
         File newVersion = new File("E:/vdis/FSV 2.vdi");
         File oldVersion = new File("E:/vdis/FSV.vdi");
+        FileChannel fNew = new FileInputStream(newVersion).getChannel(); // Canale di lettura del nuovo file
+        FileChannel fOutOld = FileChannel.open(oldVersion.toPath(), StandardOpenOption.WRITE); // Canale di scrittura sul vecchio file in append
         final int ChunkSize = 1024 * 1024; // 1 MB
         long newChunks, oldChunks;
         long[] oldDigests, newDigests;
@@ -108,6 +112,34 @@ public class METPServer {
         }
 
         System.out.println("\nEquals: " + equals);
+
+        IndexedArray iaNew = new IndexedArray(newDigests);
+        AIndexedArray aiaOld = new AIndexedArray(oldDigests);
+        for (int i = 0; i < oldChunks; i++) {
+            for (int j = 0; j < newChunks; j++) {
+                if (iaNew.sIndexes[j] == 0) {
+                    if (aiaOld.array[i] == iaNew.array[j]) {
+                        aiaOld.addIndex(i, j);
+                        iaNew.sIndexes[j]++;
+                    }
+                } else if (i == j) {
+                    if(aiaOld.array[i] == iaNew.array[j]) {
+                        aiaOld.addIndex(i, j);
+                    }
+                }
+            }
+        }
+
+        for (int i : iaNew.sIndexes) {
+            System.out.println(i);
+        }
+        
+        for (int i = 0; i < aiaOld.sIndexes.length; i++) {
+            System.out.print("\nIndexes["+ i +"]: ");
+            for (int j = 0; j < aiaOld.sIndexes[i].length; j++) {
+                System.out.print(aiaOld.sIndexes[i][j]);
+            }
+        }
     }
 
 }
