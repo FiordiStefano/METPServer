@@ -12,6 +12,7 @@ import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
 
@@ -20,6 +21,15 @@ import java.nio.file.StandardOpenOption;
  * @author Stefano Fiordi
  */
 public class METPServer {
+
+    static byte[] createPacket(ByteBuffer buf) {
+        buf.flip();
+        byte[] packet = new byte[buf.remaining()];
+        buf.get(packet);
+        buf.clear();
+
+        return packet;
+    }
 
     public static void writeDigests(long[] digests, String filename) throws IOException {
         BufferedWriter writer = new BufferedWriter(new FileWriter(filename, false));
@@ -124,7 +134,7 @@ public class METPServer {
                         iaNew.sIndexes[j]++;
                     }
                 } else if (i == j) {
-                    if(aiaOld.array[i] == iaNew.array[j]) {
+                    if (aiaOld.array[i] == iaNew.array[j]) {
                         aiaOld.addIndex(i, j);
                     }
                 }
@@ -137,15 +147,136 @@ public class METPServer {
         for (int i = 0; i < aiaOld.sIndexes.length; i++) {
             System.out.println(aiaOld.sIndexes[i].length);
         }
-        
+
         for (int i = 0; i < aiaOld.sIndexes.length; i++) {
-            System.out.print("\nIndexes["+ i +"]: ");
+            System.out.print("\nIndexes[" + i + "]: ");
             for (int j = 0; j < aiaOld.sIndexes[i].length; j++) {
                 System.out.print(aiaOld.sIndexes[i][j] + " ");
             }
         }
-        
-        
+
+        if (oldVersion.length() < newVersion.length()) {
+            long[] newArray = new long[(int) newChunks];
+            System.arraycopy(aiaOld.array, 0, newArray, 0, aiaOld.array.length);
+            aiaOld.array = newArray;
+
+            for (int i = (int) oldChunks; i < (int) newChunks; i++) {
+                int j;
+                ByteBuffer buf = ByteBuffer.allocate(ChunkSize);
+                for (j = 0; j < aiaOld.sIndexes.length; j++) {
+                    int index = aiaOld.searchColumnIndex(j, i);
+                    if (index != -1) {
+                        int len;
+                        if ((len = fOld.read(buf, j * ChunkSize)) != -1) {
+                            byte[] chunk = createPacket(buf);
+                            fOutOld.write(ByteBuffer.wrap(chunk), i * ChunkSize);
+                            aiaOld.delIndex(j, index);
+                            aiaOld.array[i] = aiaOld.array[j];
+                            break;
+                        }
+                    }
+                }
+                if (j == aiaOld.sIndexes.length) {
+                    int len;
+                    if ((len = fNew.read(buf, i * ChunkSize)) != -1) {
+                        byte[] chunk = createPacket(buf);
+                        fOutOld.write(ByteBuffer.wrap(chunk), i * ChunkSize);
+                        aiaOld.array[i] = iaNew.array[i];
+                    }
+                }
+            }
+        }
+        long dBuf = 0;
+        int[] dsIndexes = null;
+        byte[] dChunk = null;
+        while (true) {
+            int updated = 0, notUp = 0;
+            ByteBuffer buf = ByteBuffer.allocate(ChunkSize);
+            for (int i = 0; i < aiaOld.sIndexes.length; i++) {
+                if (aiaOld.sIndexes[i][0] == -1) {
+                    int k = -1;
+                    if (dsIndexes != null) {
+                        for (k = 0; k < dsIndexes.length; k++) {
+                            if (dsIndexes[k] == i) {
+                                fOutOld.write(ByteBuffer.wrap(dChunk), i * ChunkSize);
+                                aiaOld.array[i] = dBuf;
+                                if (dsIndexes.length > 1) {
+                                    for (int z = k; z < dsIndexes.length - 1; z++) {
+                                        dsIndexes[z] = dsIndexes[z + 1];
+                                    }
+                                } else {
+                                    dsIndexes = null;
+                                    dBuf = 0;
+                                    dChunk = null;
+                                }
+                                updated++;
+                                break;
+                            }
+                        }
+
+                        k = -1;
+                    }
+                    if (k == -1) {
+                        int j = 0;
+                        for (; j < aiaOld.sIndexes.length; j++) {
+                            int index = aiaOld.searchColumnIndex(j, i);
+                            if (index != -1) {
+                                int len;
+                                if ((len = fOld.read(buf, j * ChunkSize)) != -1) {
+                                    byte[] chunk = createPacket(buf);
+                                    fOutOld.write(ByteBuffer.wrap(chunk), i * ChunkSize);
+                                    if (aiaOld.sIndexes[i].length == 1) {
+                                        aiaOld.sIndexes[i][0] = -1;
+                                    } else {
+                                        aiaOld.delIndex(j, index);
+                                    }
+                                    aiaOld.array[i] = aiaOld.array[j];
+                                    updated++;
+                                    break;
+                                }
+                            }
+                        }
+                        if (j == aiaOld.sIndexes.length) {
+                            int len;
+                            if ((len = fNew.read(buf, i * ChunkSize)) != -1) {
+                                byte[] chunk = createPacket(buf);
+                                fOutOld.write(ByteBuffer.wrap(chunk), i * ChunkSize);
+                                aiaOld.array[i] = iaNew.array[i];
+                                aiaOld.addIndex(i, i);
+                                updated++;
+                            }
+                        }
+                    }
+                } else {
+                    if (aiaOld.searchColumnIndex(i, i) != -1) {
+                        updated++;
+                        notUp++;
+                    } else {
+                        notUp++;
+                    }
+                }
+            }
+            if (updated == aiaOld.sIndexes.length) {
+                break;
+            } else if (notUp == aiaOld.sIndexes.length) {
+                for (int i = 0; i < aiaOld.sIndexes.length; i++) {
+                    if (aiaOld.searchColumnIndex(i, i) == -1 && aiaOld.sIndexes[i][0] != -1) {
+                        int len;
+                        if ((len = fOld.read(buf, i * ChunkSize)) != -1) {
+                            dChunk = createPacket(buf);
+                            dBuf = aiaOld.array[i];
+                            dsIndexes = new int[aiaOld.sIndexes[i].length];
+                            System.arraycopy(aiaOld.sIndexes[i], 0, dsIndexes, 0, aiaOld.sIndexes.length);
+                        }
+                    }
+                }
+            }
+        }
+        if (oldVersion.length() > newVersion.length()) {
+            fOutOld.truncate(newVersion.length());
+            long[] newArray = new long[(int) newChunks];
+            System.arraycopy(aiaOld.array, 0, newArray, 0, (int) newChunks);
+        }
     }
 
 }

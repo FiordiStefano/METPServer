@@ -17,38 +17,48 @@ public class AIndexedArray {
     public AIndexedArray(long[] array) {
         this.array = array;
         this.sIndexes = new int[array.length][];
-        for(int i = 0; i < sIndexes.length; i++) {
+        for (int i = 0; i < sIndexes.length; i++) {
             sIndexes[i] = new int[0];
         }
     }
 
-    private void realloc(int index, int newLength) throws MyExc {
-        if (index >= array.length || index < 0) {
+    private void realloc(int row, int newLength) throws MyExc {
+        if (row >= array.length || row < 0) {
             throw new MyExc("Invalid index");
         }
         if (newLength < 0) {
             throw new MyExc("Invalid new length");
         }
         int[] newIndexes = new int[newLength];
-        System.arraycopy(sIndexes[index], 0, newIndexes, 0, sIndexes[index].length);
-        sIndexes[index] = newIndexes;
+        System.arraycopy(sIndexes[row], 0, newIndexes, 0, sIndexes[row].length);
+        sIndexes[row] = newIndexes;
     }
 
-    protected void addIndex(int index, int value) throws MyExc {
+    protected void addIndex(int row, int value) throws MyExc {
         if (value < -2) {
             throw new MyExc("Invalid new index value");
         }
-        realloc(index, sIndexes[index].length + 1);
-        sIndexes[index][sIndexes[index].length - 1] = value;
+        realloc(row, sIndexes[row].length + 1);
+        sIndexes[row][sIndexes[row].length - 1] = value;
     }
 
-    protected void delIndex(int rIndex, int cIndex) throws MyExc {
-        if (rIndex >= array.length || rIndex < 0 || cIndex >= array.length || cIndex < 0) {
+    protected void delIndex(int row, int col) throws MyExc {
+        if (row >= array.length || row < 0 || col >= array.length || col < 0) {
             throw new MyExc("Invalid index");
         }
-        for (int i = cIndex; i < sIndexes[rIndex].length - 1; i++) {
-            sIndexes[rIndex][i] = sIndexes[rIndex][i + 1];
+        for (int i = col; i < sIndexes[row].length - 1; i++) {
+            sIndexes[row][i] = sIndexes[row][i + 1];
         }
-        realloc(rIndex, sIndexes[rIndex].length - 1);
+        realloc(row, sIndexes[row].length - 1);
+    }
+
+    protected int searchColumnIndex(int row, int searchIndex) {
+        for (int i = 0; i < sIndexes[row].length; i++) {
+            if (sIndexes[row][i] == searchIndex) {
+                return i;
+            }
+        }
+
+        return -1;
     }
 }
