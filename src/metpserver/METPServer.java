@@ -170,8 +170,12 @@ public class METPServer {
                         if ((len = fOld.read(buf, j * ChunkSize)) != -1) {
                             byte[] chunk = createPacket(buf);
                             fOutOld.write(ByteBuffer.wrap(chunk), i * ChunkSize);
-                            aiaOld.delIndex(j, index);
                             aiaOld.array[i] = aiaOld.array[j];
+                            if (aiaOld.sIndexes[j].length == 1) {
+                                aiaOld.sIndexes[j][0] = -1;
+                            } else {
+                                aiaOld.delIndex(j, index);
+                            }
                             break;
                         }
                     }
@@ -200,6 +204,7 @@ public class METPServer {
                             if (dsIndexes[k] == i) {
                                 fOutOld.write(ByteBuffer.wrap(dChunk), i * ChunkSize);
                                 aiaOld.array[i] = dBuf;
+                                aiaOld.sIndexes[i][0] = i;
                                 if (dsIndexes.length > 1) {
                                     for (int z = k; z < dsIndexes.length - 1; z++) {
                                         dsIndexes[z] = dsIndexes[z + 1];
@@ -225,12 +230,14 @@ public class METPServer {
                                 if ((len = fOld.read(buf, j * ChunkSize)) != -1) {
                                     byte[] chunk = createPacket(buf);
                                     fOutOld.write(ByteBuffer.wrap(chunk), i * ChunkSize);
-                                    if (aiaOld.sIndexes[i].length == 1) {
-                                        aiaOld.sIndexes[i][0] = -1;
+                                    aiaOld.array[i] = aiaOld.array[j];
+                                    aiaOld.sIndexes[i][0] = i;
+                                    if (aiaOld.sIndexes[j].length == 1) {
+                                        aiaOld.sIndexes[j][0] = -1;
+                                        i = j - 1;
                                     } else {
                                         aiaOld.delIndex(j, index);
                                     }
-                                    aiaOld.array[i] = aiaOld.array[j];
                                     updated++;
                                     break;
                                 }
