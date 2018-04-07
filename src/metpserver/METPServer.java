@@ -273,7 +273,8 @@ public class METPServer {
                             dChunk = createPacket(buf);
                             dBuf = aiaOld.array[i];
                             dsIndexes = new int[aiaOld.sIndexes[i].length];
-                            System.arraycopy(aiaOld.sIndexes[i], 0, dsIndexes, 0, aiaOld.sIndexes.length);
+                            System.arraycopy(aiaOld.sIndexes[i], 0, dsIndexes, 0, aiaOld.sIndexes[i].length);
+                            aiaOld.sIndexes[i] = new int[]{-1};
                         }
                     }
                 }
@@ -284,6 +285,10 @@ public class METPServer {
             long[] newArray = new long[(int) newChunks];
             System.arraycopy(aiaOld.array, 0, newArray, 0, (int) newChunks);
         }
+
+        System.out.println("Writing old.txt...");
+        writeDigests(aiaOld.array, "old.txt");
+        System.out.println("Success");
     }
 
 }
