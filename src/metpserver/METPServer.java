@@ -154,7 +154,9 @@ public class METPServer {
                 System.out.print(aiaOld.sIndexes[i][j] + " ");
             }
         }
-
+        
+        long time = System.nanoTime();
+        System.out.println("\nFile handling started...");
         if (oldVersion.length() < newVersion.length()) {
             long[] newArray = new long[(int) newChunks];
             System.arraycopy(aiaOld.array, 0, newArray, 0, aiaOld.array.length);
@@ -170,7 +172,7 @@ public class METPServer {
                         if ((len = fOld.read(buf, (long) j * ChunkSize)) != -1) {
                             byte[] chunk = createPacket(buf);
                             fOutOld.write(ByteBuffer.wrap(chunk), (long) i * ChunkSize);
-                            System.out.println("Copied chunk " + j + " to " + i);
+                            //System.out.println("Copied chunk " + j + " to " + i);
                             aiaOld.array[i] = aiaOld.array[j];
                             if (aiaOld.sIndexes[j].length == 1) {
                                 aiaOld.sIndexes[j][0] = -1;
@@ -186,7 +188,7 @@ public class METPServer {
                     if ((len = fNew.read(buf, (long) i * ChunkSize)) != -1) {
                         byte[] chunk = createPacket(buf);
                         fOutOld.write(ByteBuffer.wrap(chunk), (long) i * ChunkSize);
-                        System.out.println("Copied chunk " + j + " from new version to " + i);
+                        //System.out.println("Copied chunk " + j + " from new version to " + i);
                         aiaOld.array[i] = iaNew.array[i];
                     }
                 }
@@ -201,19 +203,19 @@ public class METPServer {
         } else {
             iterations = (int) newChunks;
         }
-        System.out.println("\nFile handling started...");
+        System.out.println("Local file processing started...");
         while (true) {
             int updated = 0, notUp = 0;
             ByteBuffer buf = ByteBuffer.allocate(ChunkSize);
             for (int i = 0; i < iterations; i++) {
                 if (aiaOld.sIndexes[i][0] == -1) {
-                    System.out.println("Processing chunk " + i);
+                    //System.out.println("Processing chunk " + i);
                     int k = -1;
                     if (dsIndexes != null && dChunk != null) {
                         for (k = 0; k < dsIndexes.length; k++) {
                             if (dsIndexes[k] == i) {
                                 fOutOld.write(ByteBuffer.wrap(dChunk), (long) i * ChunkSize);
-                                System.out.println("Copied buffer to " + i);
+                                //System.out.println("Copied buffer to " + i);
                                 aiaOld.array[i] = dBuf;
                                 aiaOld.sIndexes[i][0] = i;
                                 if (dsIndexes.length > 1) {
@@ -243,7 +245,7 @@ public class METPServer {
                                 if ((len = fOld.read(buf, (long) j * ChunkSize)) != -1) {
                                     byte[] chunk = createPacket(buf);
                                     fOutOld.write(ByteBuffer.wrap(chunk), (long) i * ChunkSize);
-                                    System.out.println("Copied chunk " + j + " to " + i);
+                                    //System.out.println("Copied chunk " + j + " to " + i);
                                     aiaOld.array[i] = aiaOld.array[j];
                                     aiaOld.sIndexes[i][0] = i;
                                     if (aiaOld.sIndexes[j].length == 1) {
@@ -262,12 +264,11 @@ public class METPServer {
                             if ((len = fNew.read(buf, (long) i * ChunkSize)) != -1) {
                                 byte[] chunk = createPacket(buf);
                                 fOutOld.write(ByteBuffer.wrap(chunk), (long) i * ChunkSize);
-                                System.out.println("Copied chunk " + i + " from new version");
+                                //System.out.println("Copied chunk " + i + " from new version");
                                 aiaOld.array[i] = iaNew.array[i];
                                 aiaOld.sIndexes[i][0] = i;
                                 updated++;
                             }
-                            System.out.println(len);
                         }
                     }
                 } else {
@@ -304,6 +305,8 @@ public class METPServer {
             System.arraycopy(aiaOld.array, 0, newArray, 0, (int) newChunks);
         }
         System.out.println("\nFile handling finished");
+        time = System.nanoTime() - time;
+        System.out.printf("Took %.3f seconds%n", time / 1e9);
 
         System.out.println("\nWriting old.crc...");
         writeDigests(aiaOld.array, "old.crc");
