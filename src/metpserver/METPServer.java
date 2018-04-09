@@ -57,8 +57,8 @@ public class METPServer {
      * @param args the command line arguments
      */
     public static void main(String[] args) throws IOException, MyExc, NumberFormatException {
-        File newVersion = new File("E:/vdis/FSV 2.vdi");
-        File oldVersion = new File("E:/vdis/FSV.vdi");
+        File newVersion = new File("tfiles/testo1.0.txt");
+        File oldVersion = new File("tfiles/testo1.1.txt");
         FileChannel fNew = new FileInputStream(newVersion).getChannel(); // Canale di lettura del nuovo file
         FileChannel fOld = new FileInputStream(oldVersion).getChannel(); // Canale di lettura del vecchio file
         FileChannel fOutOld = FileChannel.open(oldVersion.toPath(), StandardOpenOption.WRITE); // Canale di scrittura sul vecchio file in append
@@ -77,7 +77,7 @@ public class METPServer {
             oldChunks = oldVersion.length() / ChunkSize + 1;
         }
 
-        if (!new File("new.txt").exists() && !new File("old.txt").exists()) {
+        if (!new File("new.crc").exists() && !new File("old.crc").exists()) {
             FileCRCIndex newfCRCi = new FileCRCIndex(newVersion.getAbsolutePath(), ChunkSize, newChunks, newVersion.length());
             FileCRCIndex oldfCRCi = new FileCRCIndex(oldVersion.getAbsolutePath(), ChunkSize, oldChunks, oldVersion.length());
 
@@ -86,30 +86,30 @@ public class METPServer {
             System.out.println("New file digests calculation...");
             newDigests = newfCRCi.calcDigests();
 
-            System.out.println("Writing old.txt...");
-            writeDigests(oldDigests, "old.txt");
-            System.out.println("Success\nWriting new.txt...");
-            writeDigests(newDigests, "new.txt");
+            System.out.println("Writing old.crc...");
+            writeDigests(oldDigests, "old.crc");
+            System.out.println("Success\nWriting new.crc...");
+            writeDigests(newDigests, "new.crc");
             System.out.println("Success");
-        } else if (!new File("new.txt").exists() && new File("old.txt").exists()) {
-            oldDigests = readDigests("old.txt", (int) oldChunks);
+        } else if (!new File("new.crc").exists() && new File("old.crc").exists()) {
+            oldDigests = readDigests("old.crc", (int) oldChunks);
             FileCRCIndex newfCRCi = new FileCRCIndex(newVersion.getAbsolutePath(), ChunkSize, newChunks, newVersion.length());
             System.out.println("New file digests calculation...");
             newDigests = newfCRCi.calcDigests();
-            System.out.println("Writing new.txt...");
-            writeDigests(newDigests, "new.txt");
+            System.out.println("Writing new.crc...");
+            writeDigests(newDigests, "new.crc");
             System.out.println("Success");
-        } else if (new File("new.txt").exists() && !new File("old.txt").exists()) {
-            newDigests = readDigests("new.txt", (int) newChunks);
+        } else if (new File("new.crc").exists() && !new File("old.crc").exists()) {
+            newDigests = readDigests("new.crc", (int) newChunks);
             FileCRCIndex oldfCRCi = new FileCRCIndex(oldVersion.getAbsolutePath(), ChunkSize, oldChunks, oldVersion.length());
             System.out.println("Old file digests calculation...");
             oldDigests = oldfCRCi.calcDigests();
-            System.out.println("Writing old.txt...");
-            writeDigests(oldDigests, "old.txt");
+            System.out.println("Writing old.crc...");
+            writeDigests(oldDigests, "old.crc");
             System.out.println("Success");
         } else {
-            oldDigests = readDigests("old.txt", (int) oldChunks);
-            newDigests = readDigests("new.txt", (int) newChunks);
+            oldDigests = readDigests("old.crc", (int) oldChunks);
+            newDigests = readDigests("new.crc", (int) newChunks);
         }
 
         int equals = 0;
@@ -180,7 +180,7 @@ public class METPServer {
                         }
                     }
                 }
-                if (j == aiaOld.sIndexes.length) {
+                if (j == (int) newChunks) {
                     int len;
                     if ((len = fNew.read(buf, i * ChunkSize)) != -1) {
                         byte[] chunk = createPacket(buf);
@@ -286,8 +286,8 @@ public class METPServer {
             System.arraycopy(aiaOld.array, 0, newArray, 0, (int) newChunks);
         }
 
-        System.out.println("Writing old.txt...");
-        writeDigests(aiaOld.array, "old.txt");
+        System.out.println("Writing old.crc...");
+        writeDigests(aiaOld.array, "old.crc");
         System.out.println("Success");
     }
 

@@ -30,7 +30,11 @@ public class AIndexedArray {
             throw new MyExc("Invalid new length");
         }
         int[] newIndexes = new int[newLength];
-        System.arraycopy(sIndexes[row], 0, newIndexes, 0, sIndexes[row].length);
+        if (newLength > sIndexes[row].length) {
+            System.arraycopy(sIndexes[row], 0, newIndexes, 0, sIndexes[row].length);
+        } else {
+            System.arraycopy(sIndexes[row], 0, newIndexes, 0, newLength);
+        }
         sIndexes[row] = newIndexes;
     }
 
