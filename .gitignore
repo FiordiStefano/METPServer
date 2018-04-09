@@ -1,7 +1,7 @@
 ### Java ###
 # Compiled class file
 *.class
-
+!src/metpserver/FileCRCIndex.class
 # Log file
 *.log
 
