@@ -57,8 +57,8 @@ public class METPServer {
      * @param args the command line arguments
      */
     public static void main(String[] args) throws IOException, MyExc, NumberFormatException {
-        File newVersion = new File("tfiles/testo1.0.txt");
-        File oldVersion = new File("tfiles/testo1.1.txt");
+        File newVersion = new File("tfiles/testo1.1.txt");
+        File oldVersion = new File("tfiles/testo1.0.txt");
         FileChannel fNew = new FileInputStream(newVersion).getChannel(); // Canale di lettura del nuovo file
         FileChannel fOld = new FileInputStream(oldVersion).getChannel(); // Canale di lettura del vecchio file
         FileChannel fOutOld = FileChannel.open(oldVersion.toPath(), StandardOpenOption.WRITE); // Canale di scrittura sul vecchio file in append
@@ -159,7 +159,7 @@ public class METPServer {
             long[] newArray = new long[(int) newChunks];
             System.arraycopy(aiaOld.array, 0, newArray, 0, aiaOld.array.length);
             aiaOld.array = newArray;
-
+            System.out.println("\nNew version is bigger");
             for (int i = (int) oldChunks; i < (int) newChunks; i++) {
                 int j;
                 ByteBuffer buf = ByteBuffer.allocate(ChunkSize);
@@ -170,6 +170,7 @@ public class METPServer {
                         if ((len = fOld.read(buf, j * ChunkSize)) != -1) {
                             byte[] chunk = createPacket(buf);
                             fOutOld.write(ByteBuffer.wrap(chunk), i * ChunkSize);
+                            System.out.println("Copied chunk " + j + " to " + i);
                             aiaOld.array[i] = aiaOld.array[j];
                             if (aiaOld.sIndexes[j].length == 1) {
                                 aiaOld.sIndexes[j][0] = -1;
@@ -180,11 +181,12 @@ public class METPServer {
                         }
                     }
                 }
-                if (j == (int) newChunks) {
+                if (j == aiaOld.sIndexes.length) {
                     int len;
                     if ((len = fNew.read(buf, i * ChunkSize)) != -1) {
                         byte[] chunk = createPacket(buf);
                         fOutOld.write(ByteBuffer.wrap(chunk), i * ChunkSize);
+                        System.out.println("Copied chunk " + j + " from new version to " + i);
                         aiaOld.array[i] = iaNew.array[i];
                     }
                 }
@@ -193,16 +195,25 @@ public class METPServer {
         long dBuf = 0;
         int[] dsIndexes = null;
         byte[] dChunk = null;
+        int iterations;
+        if (newChunks >= oldChunks) {
+            iterations = aiaOld.sIndexes.length;
+        } else {
+            iterations = (int) newChunks;
+        }
+        System.out.println("\nFile handling started...");
         while (true) {
             int updated = 0, notUp = 0;
             ByteBuffer buf = ByteBuffer.allocate(ChunkSize);
-            for (int i = 0; i < aiaOld.sIndexes.length; i++) {
+            for (int i = 0; i < iterations; i++) {
                 if (aiaOld.sIndexes[i][0] == -1) {
+                    System.out.println("Processing chunk " + i);
                     int k = -1;
-                    if (dsIndexes != null) {
+                    if (dsIndexes != null && dChunk != null) {
                         for (k = 0; k < dsIndexes.length; k++) {
                             if (dsIndexes[k] == i) {
                                 fOutOld.write(ByteBuffer.wrap(dChunk), i * ChunkSize);
+                                System.out.println("Copied buffer to " + i);
                                 aiaOld.array[i] = dBuf;
                                 aiaOld.sIndexes[i][0] = i;
                                 if (dsIndexes.length > 1) {
@@ -219,7 +230,9 @@ public class METPServer {
                             }
                         }
 
-                        k = -1;
+                        if (dsIndexes != null && k == dsIndexes.length) {
+                            k = -1;
+                        }
                     }
                     if (k == -1) {
                         int j = 0;
@@ -230,6 +243,7 @@ public class METPServer {
                                 if ((len = fOld.read(buf, j * ChunkSize)) != -1) {
                                     byte[] chunk = createPacket(buf);
                                     fOutOld.write(ByteBuffer.wrap(chunk), i * ChunkSize);
+                                    System.out.println("Copied chunk " + j + " to " + i);
                                     aiaOld.array[i] = aiaOld.array[j];
                                     aiaOld.sIndexes[i][0] = i;
                                     if (aiaOld.sIndexes[j].length == 1) {
@@ -248,10 +262,12 @@ public class METPServer {
                             if ((len = fNew.read(buf, i * ChunkSize)) != -1) {
                                 byte[] chunk = createPacket(buf);
                                 fOutOld.write(ByteBuffer.wrap(chunk), i * ChunkSize);
+                                System.out.println("Copied chunk " + i + " from new version");
                                 aiaOld.array[i] = iaNew.array[i];
-                                aiaOld.addIndex(i, i);
+                                aiaOld.sIndexes[i][0] = i;
                                 updated++;
                             }
+                            System.out.println(len);
                         }
                     }
                 } else {
@@ -263,9 +279,10 @@ public class METPServer {
                     }
                 }
             }
-            if (updated == aiaOld.sIndexes.length) {
+            if (updated == iterations) {
                 break;
-            } else if (notUp == aiaOld.sIndexes.length) {
+            }
+            if (notUp == iterations) {
                 for (int i = 0; i < aiaOld.sIndexes.length; i++) {
                     if (aiaOld.searchColumnIndex(i, i) == -1 && aiaOld.sIndexes[i][0] != -1) {
                         int len;
@@ -282,11 +299,13 @@ public class METPServer {
         }
         if (oldVersion.length() > newVersion.length()) {
             fOutOld.truncate(newVersion.length());
+            System.out.println("New file smaller -> Old file truncated to " + newVersion.length());
             long[] newArray = new long[(int) newChunks];
             System.arraycopy(aiaOld.array, 0, newArray, 0, (int) newChunks);
         }
+        System.out.println("\nFile handling finished");
 
-        System.out.println("Writing old.crc...");
+        System.out.println("\nWriting old.crc...");
         writeDigests(aiaOld.array, "old.crc");
         System.out.println("Success");
     }
