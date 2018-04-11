@@ -22,31 +22,57 @@ import java.nio.file.StandardOpenOption;
  */
 public class METPServer {
 
-    static byte[] createPacket(ByteBuffer buf) {
+    /**
+     * Crea il chunk attraverso un buffer binario
+     *
+     * @param buf buffer binario
+     * @return il chunk array binario
+     */
+    static byte[] createChunk(ByteBuffer buf) {
         buf.flip();
-        byte[] packet = new byte[buf.remaining()];
-        buf.get(packet);
+        byte[] chunk = new byte[buf.remaining()];
+        buf.get(chunk);
         buf.clear();
 
-        return packet;
+        return chunk;
     }
 
+    /**
+     * Scrive su un file indice tutti i digest
+     *
+     * @param digests array di digest da scrivere sul file
+     * @param filename il nome del file indice
+     * @throws IOException se ci sono errori durante la scrittura
+     */
     public static void writeDigests(long[] digests, String filename) throws IOException {
         BufferedWriter writer = new BufferedWriter(new FileWriter(filename, false));
         for (long l : digests) {
-            writer.write(Long.toString(l) + " ");
+            String s = Long.toString(l);
+            while (s.length() < 10) {
+                s = "0" + s;
+            }
+            writer.write(s);
         }
         writer.close();
     }
 
+    /**
+     * Legge i digest da un file indice
+     *
+     * @param filename il nome del file indice
+     * @param chunks il numero di digest da leggere
+     * @return l'array contenente i digest letti
+     * @throws IOException se ci sono errori durante la lettura
+     * @throws NumberFormatException se il digest letto presenta caratteri
+     * differenti da numeri
+     */
     public static long[] readDigests(String filename, int chunks) throws IOException, NumberFormatException {
         BufferedReader reader = new BufferedReader(new FileReader(filename));
-        String line;
+        char[] s = new char[10];
         long[] digests = new long[chunks];
-        line = reader.readLine();
-        String[] pcs = line.split(" ");
-        for (int i = 0; i < chunks; i++) {
-            digests[i] = Long.parseLong(pcs[i]);
+        int len;
+        for (int i = 0; (len = reader.read(s)) != -1; i++) {
+            digests[i] = Long.parseLong(new String(s));
         }
         reader.close();
 
@@ -57,15 +83,16 @@ public class METPServer {
      * @param args the command line arguments
      */
     public static void main(String[] args) throws IOException, MyExc, NumberFormatException {
-        File newVersion = new File("E:/vdis/FSV 2.vdi");
-        File oldVersion = new File("E:/vdis/FSV.vdi");
+        File newVersion = new File("E:/dati/Download/TestMETP2.rar"); // nuova versione del file
+        File oldVersion = new File("E:/dati/Download/TestMETP.rar"); // vacchia versione del file da aggiornare
         FileChannel fNew = new FileInputStream(newVersion).getChannel(); // Canale di lettura del nuovo file
         FileChannel fOld = new FileInputStream(oldVersion).getChannel(); // Canale di lettura del vecchio file
         FileChannel fOutOld = FileChannel.open(oldVersion.toPath(), StandardOpenOption.WRITE); // Canale di scrittura sul vecchio file in append
-        final int ChunkSize = 1024 * 1024; // 1 MB
-        long newChunks, oldChunks;
-        long[] oldDigests, newDigests;
+        final int ChunkSize = 1024 * 1024; // grandezza dei pezzi di file
+        long newChunks, oldChunks; // numero di pezzi dei due file
+        long[] oldDigests, newDigests; // array contenenti i digest dei file
 
+        // calcolo del numero di pezzi di entrambi i file
         if (newVersion.length() % ChunkSize == 0) {
             newChunks = newVersion.length() / ChunkSize;
         } else {
@@ -77,19 +104,20 @@ public class METPServer {
             oldChunks = oldVersion.length() / ChunkSize + 1;
         }
 
+        // Scrittura o lettura file indice dei digest
         if (!new File("new.crc").exists() && !new File("old.crc").exists()) {
             FileCRCIndex newfCRCi = new FileCRCIndex(newVersion.getAbsolutePath(), ChunkSize, newChunks, newVersion.length());
             FileCRCIndex oldfCRCi = new FileCRCIndex(oldVersion.getAbsolutePath(), ChunkSize, oldChunks, oldVersion.length());
 
-            System.out.println("Old file digests calculation...");
-            oldDigests = oldfCRCi.calcDigests();
             System.out.println("New file digests calculation...");
             newDigests = newfCRCi.calcDigests();
+            System.out.println("Old file digests calculation...");
+            oldDigests = oldfCRCi.calcDigests();
 
-            System.out.println("Writing old.crc...");
-            writeDigests(oldDigests, "old.crc");
-            System.out.println("Success\nWriting new.crc...");
+            System.out.println("Writing new.crc...");
             writeDigests(newDigests, "new.crc");
+            System.out.println("Success\nWriting old.crc...");
+            writeDigests(oldDigests, "old.crc");
             System.out.println("Success");
         } else if (!new File("new.crc").exists() && new File("old.crc").exists()) {
             oldDigests = readDigests("old.crc", (int) oldChunks);
@@ -124,8 +152,9 @@ public class METPServer {
 
         System.out.println("\nEquals: " + equals);
 
-        IndexedArray iaNew = new IndexedArray(newDigests);
-        AIndexedArray aiaOld = new AIndexedArray(oldDigests);
+        IndexedArray iaNew = new IndexedArray(newDigests); // associazione di un array di indici secondari all'array di digest del nuovo file
+        AIndexedArray aiaOld = new AIndexedArray(oldDigests); // associazione di un array bidimensionale di indici secondari all'array di digest del vecchio file
+        // confronto tra i due array di digest e verifica di quelli già presenti nel vecchio file
         for (int i = 0; i < oldChunks; i++) {
             for (int j = 0; j < newChunks; j++) {
                 if (iaNew.sIndexes[j] == 0) {
@@ -154,9 +183,10 @@ public class METPServer {
                 System.out.print(aiaOld.sIndexes[i][j] + " ");
             }
         }
-        
+
         long time = System.nanoTime();
         System.out.println("\nFile handling started...");
+        // inizio delle operazioni di aggiornamento del vecchio file
         if (oldVersion.length() < newVersion.length()) {
             long[] newArray = new long[(int) newChunks];
             System.arraycopy(aiaOld.array, 0, newArray, 0, aiaOld.array.length);
@@ -170,7 +200,7 @@ public class METPServer {
                     if (index != -1) {
                         int len;
                         if ((len = fOld.read(buf, (long) j * ChunkSize)) != -1) {
-                            byte[] chunk = createPacket(buf);
+                            byte[] chunk = createChunk(buf);
                             fOutOld.write(ByteBuffer.wrap(chunk), (long) i * ChunkSize);
                             //System.out.println("Copied chunk " + j + " to " + i);
                             aiaOld.array[i] = aiaOld.array[j];
@@ -186,7 +216,7 @@ public class METPServer {
                 if (j == aiaOld.sIndexes.length) {
                     int len;
                     if ((len = fNew.read(buf, (long) i * ChunkSize)) != -1) {
-                        byte[] chunk = createPacket(buf);
+                        byte[] chunk = createChunk(buf);
                         fOutOld.write(ByteBuffer.wrap(chunk), (long) i * ChunkSize);
                         //System.out.println("Copied chunk " + j + " from new version to " + i);
                         aiaOld.array[i] = iaNew.array[i];
@@ -243,7 +273,7 @@ public class METPServer {
                             if (index != -1) {
                                 int len;
                                 if ((len = fOld.read(buf, (long) j * ChunkSize)) != -1) {
-                                    byte[] chunk = createPacket(buf);
+                                    byte[] chunk = createChunk(buf);
                                     fOutOld.write(ByteBuffer.wrap(chunk), (long) i * ChunkSize);
                                     //System.out.println("Copied chunk " + j + " to " + i);
                                     aiaOld.array[i] = aiaOld.array[j];
@@ -262,7 +292,7 @@ public class METPServer {
                         if (j == aiaOld.sIndexes.length) {
                             int len;
                             if ((len = fNew.read(buf, (long) i * ChunkSize)) != -1) {
-                                byte[] chunk = createPacket(buf);
+                                byte[] chunk = createChunk(buf);
                                 fOutOld.write(ByteBuffer.wrap(chunk), (long) i * ChunkSize);
                                 //System.out.println("Copied chunk " + i + " from new version");
                                 aiaOld.array[i] = iaNew.array[i];
@@ -288,7 +318,7 @@ public class METPServer {
                     if (aiaOld.searchColumnIndex(i, i) == -1 && aiaOld.sIndexes[i][0] != -1) {
                         int len;
                         if ((len = fOld.read(buf, (long) i * ChunkSize)) != -1) {
-                            dChunk = createPacket(buf);
+                            dChunk = createChunk(buf);
                             dBuf = aiaOld.array[i];
                             dsIndexes = new int[aiaOld.sIndexes[i].length];
                             System.arraycopy(aiaOld.sIndexes[i], 0, dsIndexes, 0, aiaOld.sIndexes[i].length);
@@ -307,7 +337,7 @@ public class METPServer {
         System.out.println("\nFile handling finished");
         time = System.nanoTime() - time;
         System.out.printf("Took %.3f seconds%n", time / 1e9);
-
+        // sovrascrittura del vecchio file indice con quello nuovo
         System.out.println("\nWriting old.crc...");
         writeDigests(aiaOld.array, "old.crc");
         System.out.println("Success");
